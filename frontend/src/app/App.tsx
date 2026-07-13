@@ -14,6 +14,8 @@ import { reservationCancelledTrigger, bookingConfirmedTrigger } from "./utils/tr
 import { generateInvoice, generateConsolidatedInvoice, downloadInvoicePDF, cancelInvoiceItem, type Invoice } from "./utils/invoiceGenerator";
 import { createBranchInventory, inventoryTotals, type BranchCity, type BranchInventory } from "./utils/branches";
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/$/, "");
+
 type Screen = "hero" | "fleet" | "bookingCatalog" | "booking" | "myReservations" | "dashboard" | "confirmed" | "login" | "company" | "destinations" | "about";
 
 export type Vehicle = {
@@ -759,7 +761,7 @@ export default function App() {
 
               for (const { data, vehicle } of checkoutItems) {
               const id_vehiculo = vehicle.id <= 4 ? vehicle.id : 4;
-              const resResponse = await fetch("http://localhost:3000/api/reservas", {
+              const resResponse = await fetch(`${API_BASE_URL}/api/reservas`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -778,7 +780,7 @@ export default function App() {
 
               if (resResult.id_reserva) {
                 // 4. POST /api/pagos
-                const payResponse = await fetch("http://localhost:3000/api/pagos", {
+                const payResponse = await fetch(`${API_BASE_URL}/api/pagos`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({

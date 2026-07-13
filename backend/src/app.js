@@ -3,7 +3,17 @@ const cors = require('cors');
 
 const app = express();
 
-app.use(cors());
+const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error("Origen no permitido por CORS"));
+  }
+}));
 app.use(express.json());
 
 
@@ -21,6 +31,10 @@ app.get('/', (req, res) => {
   res.json({
     mensaje: "API funcionando"
   });
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({ status: "ok" });
 });
 
 module.exports = app;
