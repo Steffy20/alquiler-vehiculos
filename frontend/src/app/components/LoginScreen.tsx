@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArrowLeft, Eye, EyeOff, Mail, Lock, User, MapPin, Phone, AlertCircle } from "lucide-react";
 import { loadFromStorage, saveToStorage } from "../utils/storage";
+import { ECUADOR_CITIES, findEcuadorCity } from "../utils/ecuadorCities";
 
 const ADMIN_EMAIL = "admin@renta.com";
 const ADMIN_PASSWORD = "admin123";
@@ -68,6 +69,7 @@ export function LoginScreen({ allowBack = true, onBack, onLogin }: LoginScreenPr
     }
     if (!phone.trim() || phone.length < 8) newErrors.phone = "Teléfono inválido";
     if (!city.trim()) newErrors.city = "Requerido";
+    else if (!findEcuadorCity(city)) newErrors.city = "Selecciona una ciudad de la lista";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -103,7 +105,7 @@ export function LoginScreen({ allowBack = true, onBack, onLogin }: LoginScreenPr
       } else {
         if (validateSignupStep2()) {
           const fullName = name.trim() !== "" ? `${name} ${lastName}`.trim() : email.split('@')[0] || "Usuario";
-          saveUser(email, { name: fullName, password, phone, city, role: "client" });
+          saveUser(email, { firstName: name.trim(), lastName: lastName.trim(), name: fullName, password, phone, city: findEcuadorCity(city) || city, role: "client" });
           onLogin(fullName, true, "client", email, phone);
         }
       }
@@ -316,9 +318,12 @@ export function LoginScreen({ allowBack = true, onBack, onLogin }: LoginScreenPr
                     <label style={{ fontFamily: "'Outfit', sans-serif", fontSize: 11, color: "#7a7890", letterSpacing: "0.1em", fontWeight: 500 }} className="block mb-1.5">
                       CIUDAD
                     </label>
-                    <div className={`flex items-start gap-3 bg-[#1a1a24] border rounded-xl px-4 py-3.5 h-36 transition-colors ${errors.city ? "border-[#d4183d]" : "border-[#1a1a24] focus-within:border-[#c9a84c]/50"}`}>
-                      <MapPin size={15} color={errors.city ? "#d4183d" : "#7a7890"} className="mt-1" />
-                      <textarea value={city} onChange={(e) => { setCity(e.target.value); setErrors({...errors, city: ""}); }} placeholder="" className="bg-transparent flex-1 outline-none resize-none h-full placeholder-[#3a3a50]" style={{ fontFamily: "'Outfit', sans-serif", fontSize: 14, color: "#f0ede8" }} />
+                    <div className={`flex items-center gap-3 bg-[#1a1a24] border rounded-xl px-4 py-3.5 transition-colors ${errors.city ? "border-[#d4183d]" : "border-[#1a1a24] focus-within:border-[#c9a84c]/50"}`}>
+                      <MapPin size={15} color={errors.city ? "#d4183d" : "#7a7890"} />
+                      <input list="ecuador-cities-signup" type="text" value={city} onChange={(e) => { setCity(e.target.value); setErrors({...errors, city: ""}); }} placeholder="Escribe para buscar, ej. Manta" autoComplete="off" className="bg-transparent flex-1 outline-none placeholder-[#3a3a50]" style={{ fontFamily: "'Outfit', sans-serif", fontSize: 14, color: "#f0ede8" }} />
+                      <datalist id="ecuador-cities-signup">
+                        {ECUADOR_CITIES.map((ecuadorCity) => <option key={ecuadorCity} value={ecuadorCity} />)}
+                      </datalist>
                     </div>
                     <InputError msg={errors.city} />
                   </div>

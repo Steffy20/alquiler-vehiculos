@@ -9,6 +9,7 @@ import { AdminPanel } from "./AdminPanel";
 import { loadFromStorage, saveToStorage } from "../utils/storage";
 import { downloadInvoicePDF } from "../utils/invoiceGenerator";
 import { PieChart, BarChart, LineChart } from "./Charts";
+import { ECUADOR_CITIES, findEcuadorCity } from "../utils/ecuadorCities";
 
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
   activa: { label: "ACTIVA", color: "#c9a84c", bg: "rgba(201,168,76,0.12)" },
@@ -306,6 +307,11 @@ export function DashboardScreen({
       setUserCreateError("Todos los campos son obligatorios");
       return;
     }
+    const selectedCity = findEcuadorCity(newUserCity);
+    if (!selectedCity) {
+      setUserCreateError("Selecciona una ciudad del Ecuador de la lista");
+      return;
+    }
     
     // Validar formato de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -340,7 +346,7 @@ export function DashboardScreen({
         name: fullName,
         email: newUserEmail,
         phone: newUserPhone,
-        city: newUserCity,
+        city: selectedCity,
         password: newUserPassword || currentUser?.password || "",
         role: newUserRole,
       };
@@ -1358,7 +1364,10 @@ export function DashboardScreen({
               </div>
               <div>
                 <label style={{ fontFamily: "'Outfit', sans-serif", fontSize: 11, color: "#7a7890", letterSpacing: "0.1em" }} className="block mb-1.5">Ciudad</label>
-                <input type="text" value={newUserCity} onChange={(e) => setNewUserCity(e.target.value)} className="w-full bg-[#1a1a24] border border-[#c9a84c]/15 rounded-2xl px-4 py-3 text-[#f0ede8] outline-none" placeholder="Manta" />
+                <input list="ecuador-cities-admin" type="text" value={newUserCity} onChange={(e) => setNewUserCity(e.target.value)} autoComplete="off" className="w-full bg-[#1a1a24] border border-[#c9a84c]/15 rounded-2xl px-4 py-3 text-[#f0ede8] outline-none" placeholder="Escribe para buscar, ej. Manta" />
+                <datalist id="ecuador-cities-admin">
+                  {ECUADOR_CITIES.map((ecuadorCity) => <option key={ecuadorCity} value={ecuadorCity} />)}
+                </datalist>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
