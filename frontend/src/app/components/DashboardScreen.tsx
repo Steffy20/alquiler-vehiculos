@@ -61,6 +61,7 @@ export function DashboardScreen({
   const [userSearch, setUserSearch] = useState("");
   const [newUserRole, setNewUserRole] = useState<"client" | "secretary">("client");
   const [newUserName, setNewUserName] = useState("");
+  const [newUserLastName, setNewUserLastName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPhone, setNewUserPhone] = useState("");
   const [newUserCity, setNewUserCity] = useState("");
@@ -263,6 +264,7 @@ export function DashboardScreen({
 
   const resetUserForm = () => {
     setNewUserName("");
+    setNewUserLastName("");
     setNewUserEmail("");
     setNewUserPhone("");
     setNewUserCity("");
@@ -278,8 +280,11 @@ export function DashboardScreen({
   };
 
   const openEditUserModal = (email: string, user: any) => {
+    const legacyNameParts = String(user.name || "").trim().split(/\s+/).filter(Boolean);
+    const legacyLastName = legacyNameParts.length > 1 ? legacyNameParts.pop() || "" : "";
     setEditingUserEmail(email);
-    setNewUserName(user.name || "");
+    setNewUserName(user.firstName || legacyNameParts.join(" "));
+    setNewUserLastName(user.lastName || legacyLastName);
     setNewUserEmail(email);
     setNewUserPhone(user.phone || "");
     setNewUserCity(user.city || "");
@@ -292,9 +297,12 @@ export function DashboardScreen({
   const handleCreateUser = () => {
     setUserCreateError("");
     const isEditingUser = Boolean(editingUserEmail);
+    const firstName = newUserName.trim();
+    const lastName = newUserLastName.trim();
+    const fullName = `${firstName} ${lastName}`.trim();
     
     // Validar que todos los campos estén completos
-    if (!newUserName || !newUserEmail || !newUserPhone || !newUserCity || (!isEditingUser && !newUserPassword)) {
+    if (!firstName || !lastName || !newUserEmail.trim() || !newUserPhone.trim() || !newUserCity.trim() || (!isEditingUser && !newUserPassword)) {
       setUserCreateError("Todos los campos son obligatorios");
       return;
     }
@@ -327,7 +335,9 @@ export function DashboardScreen({
 
       next[newUserEmail] = {
         ...currentUser,
-        name: newUserName,
+        firstName,
+        lastName,
+        name: fullName,
         email: newUserEmail,
         phone: newUserPhone,
         city: newUserCity,
@@ -339,7 +349,7 @@ export function DashboardScreen({
     });
     onLogActivity?.({
       action: isEditingUser ? "Usuario actualizado" : "Usuario creado",
-      detail: `${userName || "Administrador"} ${isEditingUser ? "actualizó la información de" : "creó la cuenta de"} ${newUserName} (${newUserEmail}) con rol ${newUserRole}.`,
+      detail: `${userName || "Administrador"} ${isEditingUser ? "actualizó la información de" : "creó la cuenta de"} ${fullName} (${newUserEmail}) con rol ${newUserRole}.`,
       category: "usuarios",
     });
     
@@ -1331,8 +1341,12 @@ export function DashboardScreen({
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label style={{ fontFamily: "'Outfit', sans-serif", fontSize: 11, color: "#7a7890", letterSpacing: "0.1em" }} className="block mb-1.5">Nombre completo</label>
-                <input type="text" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} className="w-full bg-[#1a1a24] border border-[#c9a84c]/15 rounded-2xl px-4 py-3 text-[#f0ede8] outline-none" placeholder="Ana Moreno" />
+                <label style={{ fontFamily: "'Outfit', sans-serif", fontSize: 11, color: "#7a7890", letterSpacing: "0.1em" }} className="block mb-1.5">Nombres</label>
+                <input type="text" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} className="w-full bg-[#1a1a24] border border-[#c9a84c]/15 rounded-2xl px-4 py-3 text-[#f0ede8] outline-none" placeholder="Ana María" />
+              </div>
+              <div>
+                <label style={{ fontFamily: "'Outfit', sans-serif", fontSize: 11, color: "#7a7890", letterSpacing: "0.1em" }} className="block mb-1.5">Apellidos</label>
+                <input type="text" value={newUserLastName} onChange={(e) => setNewUserLastName(e.target.value)} className="w-full bg-[#1a1a24] border border-[#c9a84c]/15 rounded-2xl px-4 py-3 text-[#f0ede8] outline-none" placeholder="Moreno Zambrano" />
               </div>
               <div>
                 <label style={{ fontFamily: "'Outfit', sans-serif", fontSize: 11, color: "#7a7890", letterSpacing: "0.1em" }} className="block mb-1.5">Correo electrónico</label>
