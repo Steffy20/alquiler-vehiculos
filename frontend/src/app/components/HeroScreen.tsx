@@ -1,4 +1,5 @@
 import { Star, Shield, Clock } from "lucide-react";
+import { RentEcLogo } from "./RentEcLogo";
 
 const HERO_IMG = "https://images.unsplash.com/photo-1780296269675-169390638617?w=1600&h=900&fit=crop&auto=format";
 
@@ -46,12 +47,7 @@ export function HeroScreen({ userName, onExplore, onLogin, onDashboard, onCompan
       <div className="relative z-10 flex flex-col flex-1 max-w-7xl mx-auto px-6 py-8 w-full">
         {/* Nav */}
         <nav className="flex items-center justify-between mb-20">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-[#c9a84c] rounded flex items-center justify-center">
-              <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 700, fontSize: 14, color: "#0a0a0f" }}>R</span>
-            </div>
-            <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 600, fontSize: 18, color: "#f0ede8", letterSpacing: "0.05em" }}>RENTA</span>
-          </div>
+          <RentEcLogo compact />
           <div className="hidden md:flex items-center gap-8">
             {["Vehiculos", "Destinos", "Empresas", "Nosotros"].map((item) => (
               <button
