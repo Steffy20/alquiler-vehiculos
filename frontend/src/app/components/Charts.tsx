@@ -145,22 +145,26 @@ export function LineChart({
   data,
   label,
   valueFormatter = (v) => `$${v}`,
-  yStep = 500,
 }: {
   data: Array<{ name: string; value: number }>;
   label: string;
   valueFormatter?: (value: number) => string;
-  yStep?: number;
 }) {
   const maxValue = Math.max(...data.map((d) => d.value), 1);
+  const roughStep = maxValue / 4;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep || 1)));
+  const normalizedStep = roughStep / magnitude;
+  const niceMultiplier = normalizedStep <= 1 ? 1 : normalizedStep <= 2 ? 2 : normalizedStep <= 5 ? 5 : 10;
+  const yStep = niceMultiplier * magnitude;
   const axisMax = Math.max(yStep, Math.ceil(maxValue / yStep) * yStep);
   const chartWidth = 340;
   const chartHeight = 170;
   const padding = { top: 18, right: 18, bottom: 32, left: 56 };
   const plotWidth = chartWidth - padding.left - padding.right;
   const plotHeight = chartHeight - padding.top - padding.bottom;
-  const tickCount = axisMax / yStep;
-  const ticks = Array.from({ length: tickCount + 1 }, (_, i) => axisMax - i * yStep);
+  const tickCount = Math.min(4, Math.max(1, Math.round(axisMax / yStep)));
+  const tickStep = axisMax / tickCount;
+  const ticks = Array.from({ length: tickCount + 1 }, (_, i) => Math.round(axisMax - i * tickStep));
 
   const points = data.map((item, index) => {
     const x = (index / (data.length - 1 || 1)) * plotWidth + padding.left;
