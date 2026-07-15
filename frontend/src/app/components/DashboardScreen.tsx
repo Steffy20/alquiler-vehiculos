@@ -803,6 +803,114 @@ export function DashboardScreen({
               </div>
             )}
 
+            {adminTab === "extras" && (
+              <div>
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Plus size={16} color="#c9a84c" />
+                      <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 16, fontWeight: 700, color: "#f0ede8" }}>
+                        Gestión de extras
+                      </span>
+                    </div>
+                    <p style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, color: "#7a7890" }}>
+                      Administra los adicionales que aparecen durante la reserva.
+                    </p>
+                  </div>
+                  <button
+                    onClick={openCreateExtraModal}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#c9a84c] hover:bg-[#d4b860] rounded-xl transition-all"
+                    style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 700, color: "#0a0a0f" }}
+                  >
+                    <Plus size={14} />
+                    Añadir extra
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {activeExtras.map((extra) => (
+                    <div key={extra.id} className="bg-[#12121a] border border-[#c9a84c]/10 rounded-2xl p-4">
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div>
+                          <p style={{ fontFamily: "'Outfit', sans-serif", fontSize: 14, fontWeight: 700, color: "#f0ede8" }}>{extra.name}</p>
+                          <p style={{ fontFamily: "'Outfit', sans-serif", fontSize: 12, color: "#7a7890", lineHeight: 1.5 }}>{extra.desc}</p>
+                        </div>
+                        <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, color: "#c9a84c" }}>
+                          ${extra.price}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-[#4caf84]/12 text-[#4caf84]">
+                          Activo
+                        </span>
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={() => openEditExtraModal(extra)}
+                            className="w-8 h-8 bg-[#1a1a24] border border-[#c9a84c]/20 rounded-lg flex items-center justify-center hover:bg-[#c9a84c]/15 transition-colors"
+                            title="Editar extra"
+                          >
+                            <Edit2 size={13} color="#c9a84c" />
+                          </button>
+                          <button
+                            onClick={() => toggleExtraStatus(extra.id, true)}
+                            className="w-8 h-8 bg-[#1a1a24] border border-[#f59e0b]/20 rounded-lg flex items-center justify-center hover:bg-[#f59e0b]/15 transition-colors"
+                            title="Desactivar extra"
+                          >
+                            <PowerOff size={13} color="#f59e0b" />
+                          </button>
+                          <button
+                            onClick={() => deleteExtra(extra.id)}
+                            className="w-8 h-8 bg-[#1a1a24] border border-[#d4183d]/20 rounded-lg flex items-center justify-center hover:bg-[#d4183d]/15 transition-colors"
+                            title="Eliminar extra"
+                          >
+                            <Trash2 size={13} color="#d4183d" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {activeExtras.length === 0 && (
+                  <div className="bg-[#12121a] border border-[#c9a84c]/10 rounded-2xl p-8 text-center text-[#7a7890] text-sm">
+                    No hay extras activos.
+                  </div>
+                )}
+
+                {disabledExtras.length > 0 && (
+                  <div className="mt-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <PowerOff size={15} color="#f59e0b" />
+                      <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 14, fontWeight: 700, color: "#f0ede8" }}>
+                        Extras desactivados
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {disabledExtras.map((extra) => (
+                        <div key={extra.id} className="bg-[#12121a] border border-[#f59e0b]/20 rounded-2xl p-4 opacity-80">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p style={{ fontFamily: "'Outfit', sans-serif", fontSize: 14, fontWeight: 700, color: "#f0ede8" }}>{extra.name}</p>
+                              <p style={{ fontFamily: "'Outfit', sans-serif", fontSize: 12, color: "#7a7890", lineHeight: 1.5 }}>{extra.desc}</p>
+                              <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "#c9a84c", marginTop: 8 }}>${extra.price}/día</p>
+                            </div>
+                            <button
+                              onClick={() => toggleExtraStatus(extra.id, false)}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#4caf84]/12 border border-[#4caf84]/30 text-[#4caf84] hover:bg-[#4caf84]/20 transition-colors"
+                              style={{ fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 700 }}
+                            >
+                              <RotateCcw size={13} />
+                              Reactivar
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {adminTab === "disabled" && (
               <div className="space-y-6">
                 <div>
@@ -1582,6 +1690,75 @@ export function DashboardScreen({
           onSave={handleSaveVehicle}
           onClose={() => { setShowAdminPanel(false); setEditingVehicle(null); }}
         />
+      )}
+
+      {/* Create/Edit Extra Modal */}
+      {showExtraModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0a0a0f]/85 backdrop-blur-md p-4" onClick={() => { resetExtraForm(); setShowExtraModal(false); }}>
+          <div className="bg-[#12121a] border border-[#c9a84c]/20 rounded-3xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: "#f0ede8" }}>
+                  {editingExtraId ? "Editar extra" : "Añadir extra"}
+                </h3>
+                <p style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, color: "#7a7890" }}>
+                  Configura el adicional que aparecerá en la reserva.
+                </p>
+              </div>
+              <button className="text-[#7a7890] hover:text-[#f0ede8]" onClick={() => { resetExtraForm(); setShowExtraModal(false); }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4 mb-4">
+              <div>
+                <label style={{ fontFamily: "'Outfit', sans-serif", fontSize: 11, color: "#7a7890", letterSpacing: "0.1em" }} className="block mb-1.5">Nombre</label>
+                <input
+                  type="text"
+                  value={extraName}
+                  onChange={(e) => setExtraName(e.target.value)}
+                  className="w-full bg-[#1a1a24] border border-[#c9a84c]/15 rounded-2xl px-4 py-3 text-[#f0ede8] outline-none"
+                  placeholder="GPS Premium"
+                />
+              </div>
+              <div>
+                <label style={{ fontFamily: "'Outfit', sans-serif", fontSize: 11, color: "#7a7890", letterSpacing: "0.1em" }} className="block mb-1.5">Descripción</label>
+                <input
+                  type="text"
+                  value={extraDesc}
+                  onChange={(e) => setExtraDesc(e.target.value)}
+                  className="w-full bg-[#1a1a24] border border-[#c9a84c]/15 rounded-2xl px-4 py-3 text-[#f0ede8] outline-none"
+                  placeholder="Navegación offline y actualizaciones en tiempo real"
+                />
+              </div>
+              <div>
+                <label style={{ fontFamily: "'Outfit', sans-serif", fontSize: 11, color: "#7a7890", letterSpacing: "0.1em" }} className="block mb-1.5">Precio por día</label>
+                <input
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  value={extraPrice}
+                  onChange={(e) => setExtraPrice(e.target.value)}
+                  className="w-full bg-[#1a1a24] border border-[#c9a84c]/15 rounded-2xl px-4 py-3 text-[#f0ede8] outline-none"
+                  placeholder="8"
+                />
+              </div>
+            </div>
+
+            {extraError && (
+              <div className="mb-4 text-[#d4183d] text-sm">{extraError}</div>
+            )}
+
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => { resetExtraForm(); setShowExtraModal(false); }} className="px-5 py-3 rounded-xl border border-[#c9a84c]/20 text-[#7a7890] hover:bg-[#c9a84c]/5 transition-colors">
+                Cancelar
+              </button>
+              <button onClick={handleSaveExtra} className="px-5 py-3 rounded-xl bg-[#c9a84c] text-[#0a0a0f] font-semibold hover:bg-[#d4b860] transition-colors">
+                {editingExtraId ? "Guardar cambios" : "Añadir extra"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Create User Modal */}
