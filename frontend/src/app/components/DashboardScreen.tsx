@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import {
   Calendar, MapPin, Clock, ChevronRight, Star, BarChart2, Car,
   TrendingUp, Award, LogOut, X, Search, Shield, Fuel, Users, Edit2,
-  Trash2, Plus, Package, CheckCircle, AlertTriangle, LayoutGrid, Download
+  Trash2, Plus, CheckCircle, AlertTriangle, LayoutGrid, Download,
+  PowerOff, RotateCcw, KeyRound
 } from "lucide-react";
 import type { ActivityLogEntry, Vehicle } from "../App";
 import { AdminPanel } from "./AdminPanel";
@@ -10,6 +11,7 @@ import { loadFromStorage, saveToStorage } from "../utils/storage";
 import { downloadInvoicePDF } from "../utils/invoiceGenerator";
 import { PieChart, BarChart, LineChart } from "./Charts";
 import { ECUADOR_CITIES, findEcuadorCity } from "../utils/ecuadorCities";
+import { loadVehicleExtras, saveVehicleExtras, makeExtraId, type VehicleExtra } from "../utils/vehicleExtras";
 
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
   activa: { label: "ACTIVA", color: "#c9a84c", bg: "rgba(201,168,76,0.12)" },
@@ -32,6 +34,8 @@ export function DashboardScreen({
   onLogActivity,
   onGoToFleet,
   onDeleteVehicle,
+  onDeactivateVehicle,
+  onActivateVehicle,
   onAddVehicle,
   onUpdateVehicle,
 }: {
@@ -49,11 +53,13 @@ export function DashboardScreen({
   onEditVehicle?: (v: Vehicle) => void;
   onGoToFleet?: () => void;
   onDeleteVehicle?: (id: number) => void;
+  onDeactivateVehicle?: (id: number) => void;
+  onActivateVehicle?: (id: number) => void;
   onAddVehicle?: (v: Vehicle) => void;
   onUpdateVehicle?: (v: Vehicle) => void;
 }) {
   const [activeTab, setActiveTab] = useState("todas");
-  const [adminTab, setAdminTab] = useState<"stats" | "fleet" | "users" | "activity">("stats");
+  const [adminTab, setAdminTab] = useState<"stats" | "fleet" | "users" | "extras" | "disabled" | "activity">("stats");
   const [selectedReservation, setSelectedReservation] = useState<any>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
@@ -67,10 +73,18 @@ export function DashboardScreen({
   const [newUserPhone, setNewUserPhone] = useState("");
   const [newUserCity, setNewUserCity] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUserCanManageVehicles, setNewUserCanManageVehicles] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
   const [userCreateError, setUserCreateError] = useState("");
   const [editingUserEmail, setEditingUserEmail] = useState<string | null>(null);
   const [userDeleteConfirm, setUserDeleteConfirm] = useState<string | null>(null);
+  const [extras, setExtras] = useState<VehicleExtra[]>(() => loadVehicleExtras());
+  const [showExtraModal, setShowExtraModal] = useState(false);
+  const [editingExtraId, setEditingExtraId] = useState<string | null>(null);
+  const [extraName, setExtraName] = useState("");
+  const [extraDesc, setExtraDesc] = useState("");
+  const [extraPrice, setExtraPrice] = useState("");
+  const [extraError, setExtraError] = useState("");
   const hiddenReservationsKey = `renta_hidden_reservations_${userEmail || "client"}`;
   const [hiddenReservationIds, setHiddenReservationIds] = useState<string[]>(() =>
     loadFromStorage<string[]>(`renta_hidden_reservations_${userEmail || "client"}`, [])
@@ -209,10 +223,14 @@ export function DashboardScreen({
     ? "Reservas registradas"
     : "Mis Reservas";
 
-  const availableCount = vehicles.filter((v) => v.available).length;
-  const unavailableCount = vehicles.filter((v) => !v.available).length;
-  const categories = Array.from(new Set(vehicles.map((v) => v.category)));
-  const brands = Array.from(new Set(vehicles.map((v) => v.brand)));
+  const activeVehicles = vehicles.filter((v) => !v.disabled);
+  const disabledVehicles = vehicles.filter((v) => v.disabled);
+  const activeUsers = Object.entries(users).filter(([, user]) => !user?.disabled);
+  const disabledUsers = Object.entries(users).filter(([, user]) => user?.disabled);
+  const activeExtras = extras.filter((extra) => !extra.disabled);
+  const disabledExtras = extras.filter((extra) => extra.disabled);
+  const availableCount = activeVehicles.filter((v) => v.available).length;
+  const unavailableCount = activeVehicles.filter((v) => !v.available).length;
   const totalBilling = reservations.reduce((sum, r) => sum + (r.total || 0), 0);
   const activeReservationsCount = reservations.filter((r) => getEffectiveStatus(r) === "activa").length;
   const finishedReservationsCount = reservations.filter((r) => getEffectiveStatus(r) === "finalizada").length;
@@ -227,8 +245,8 @@ export function DashboardScreen({
   const popularVehicle = Object.entries(vehiclePopularity).sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A";
 
   const adminStats = [
-    { icon: Car, label: "Total vehículos", value: vehicles.length.toString(), sub: "en catálogo" },
-    { icon: Users, label: "Usuarios", value: Object.keys(users).length.toString(), sub: "registrados" },
+    { icon: Car, label: "Total vehículos", value: activeVehicles.length.toString(), sub: "activos en catálogo" },
+    { icon: Users, label: "Usuarios", value: activeUsers.length.toString(), sub: "activos" },
     { icon: TrendingUp, label: "Total facturado", value: `$${totalBilling.toLocaleString()}`, sub: "ingresos totales" },
     { icon: Clock, label: "Reservas totales", value: reservations.length.toString(), sub: "en el sistema" },
   ];
@@ -263,6 +281,10 @@ export function DashboardScreen({
     saveToStorage("renta_users", users);
   }, [users]);
 
+  useEffect(() => {
+    saveVehicleExtras(extras);
+  }, [extras]);
+
   const resetUserForm = () => {
     setNewUserName("");
     setNewUserLastName("");
@@ -270,6 +292,7 @@ export function DashboardScreen({
     setNewUserPhone("");
     setNewUserCity("");
     setNewUserPassword("");
+    setNewUserCanManageVehicles(false);
     setNewUserRole("client");
     setEditingUserEmail(null);
     setUserCreateError("");
@@ -278,6 +301,96 @@ export function DashboardScreen({
   const openCreateUserModal = () => {
     resetUserForm();
     setShowUserModal(true);
+  };
+
+  const resetExtraForm = () => {
+    setEditingExtraId(null);
+    setExtraName("");
+    setExtraDesc("");
+    setExtraPrice("");
+    setExtraError("");
+  };
+
+  const openCreateExtraModal = () => {
+    resetExtraForm();
+    setShowExtraModal(true);
+  };
+
+  const openEditExtraModal = (extra: VehicleExtra) => {
+    setEditingExtraId(extra.id);
+    setExtraName(extra.name);
+    setExtraDesc(extra.desc);
+    setExtraPrice(String(extra.price));
+    setExtraError("");
+    setShowExtraModal(true);
+  };
+
+  const handleSaveExtra = () => {
+    setExtraError("");
+    const cleanName = extraName.trim();
+    const cleanDesc = extraDesc.trim();
+    const price = Number(extraPrice);
+    if (!cleanName || !cleanDesc || !extraPrice.trim()) {
+      setExtraError("Todos los campos son obligatorios");
+      return;
+    }
+    if (Number.isNaN(price) || price <= 0) {
+      setExtraError("El precio debe ser mayor a 0");
+      return;
+    }
+
+    const isEditingExtra = Boolean(editingExtraId);
+    setExtras((prev) => {
+      if (editingExtraId) {
+        return prev.map((extra) =>
+          extra.id === editingExtraId
+            ? { ...extra, name: cleanName, desc: cleanDesc, price }
+            : extra
+        );
+      }
+      return [
+        ...prev,
+        {
+          id: makeExtraId(cleanName),
+          name: cleanName,
+          desc: cleanDesc,
+          price,
+          disabled: false,
+          createdAt: new Date().toISOString(),
+        },
+      ];
+    });
+    onLogActivity?.({
+      action: isEditingExtra ? "Extra actualizado" : "Extra agregado",
+      detail: `${userName || "Administrador"} ${isEditingExtra ? "actualizó" : "agregó"} el extra ${cleanName}.`,
+      category: "flota",
+    });
+    resetExtraForm();
+    setShowExtraModal(false);
+  };
+
+  const deleteExtra = (id: string) => {
+    const targetExtra = extras.find((extra) => extra.id === id);
+    setExtras((prev) => prev.filter((extra) => extra.id !== id));
+    if (targetExtra) {
+      onLogActivity?.({
+        action: "Extra eliminado",
+        detail: `${userName || "Administrador"} eliminó el extra ${targetExtra.name}.`,
+        category: "flota",
+      });
+    }
+  };
+
+  const toggleExtraStatus = (id: string, disabled: boolean) => {
+    const targetExtra = extras.find((extra) => extra.id === id);
+    setExtras((prev) => prev.map((extra) => (extra.id === id ? { ...extra, disabled } : extra)));
+    if (targetExtra) {
+      onLogActivity?.({
+        action: disabled ? "Extra desactivado" : "Extra reactivado",
+        detail: `${userName || "Administrador"} ${disabled ? "desactivó" : "reactivó"} el extra ${targetExtra.name}.`,
+        category: "flota",
+      });
+    }
   };
 
   const openEditUserModal = (email: string, user: any) => {
@@ -291,6 +404,7 @@ export function DashboardScreen({
     setNewUserCity(user.city || "");
     setNewUserPassword("");
     setNewUserRole(user.role === "secretary" ? "secretary" : "client");
+    setNewUserCanManageVehicles(Boolean(user.canManageVehicles));
     setUserCreateError("");
     setShowUserModal(true);
   };
@@ -349,6 +463,7 @@ export function DashboardScreen({
         city: selectedCity,
         password: newUserPassword || currentUser?.password || "",
         role: newUserRole,
+        canManageVehicles: newUserRole === "secretary" ? newUserCanManageVehicles : false,
       };
 
       return next;
@@ -389,6 +504,34 @@ export function DashboardScreen({
       setShowUserModal(false);
     }
     setUserDeleteConfirm(null);
+  };
+
+  const deactivateUser = (email: string) => {
+    const targetUser = users[email];
+    if (!targetUser) return;
+    setUsers((prev) => ({
+      ...prev,
+      [email]: { ...prev[email], disabled: true },
+    }));
+    onLogActivity?.({
+      action: "Usuario desactivado",
+      detail: `${userName || "Administrador"} desactivó la cuenta de ${targetUser.name || "Usuario"} (${email}).`,
+      category: "usuarios",
+    });
+  };
+
+  const reactivateUser = (email: string) => {
+    const targetUser = users[email];
+    if (!targetUser) return;
+    setUsers((prev) => ({
+      ...prev,
+      [email]: { ...prev[email], disabled: false },
+    }));
+    onLogActivity?.({
+      action: "Usuario reactivado",
+      detail: `${userName || "Administrador"} reactivó la cuenta de ${targetUser.name || "Usuario"} (${email}).`,
+      category: "usuarios",
+    });
   };
 
   return (
@@ -478,12 +621,28 @@ export function DashboardScreen({
                   Actividades
                 </button>
                 <button
+                  onClick={() => setAdminTab("extras")}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl transition-all ${adminTab === "extras" ? "bg-[#c9a84c]/20 text-[#c9a84c]" : "text-[#7a7890] hover:text-[#f0ede8]"}`}
+                  style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 500 }}
+                >
+                  <Plus size={14} />
+                  Extras ({activeExtras.length})
+                </button>
+                <button
+                  onClick={() => setAdminTab("disabled")}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl transition-all ${adminTab === "disabled" ? "bg-[#c9a84c]/20 text-[#c9a84c]" : "text-[#7a7890] hover:text-[#f0ede8]"}`}
+                  style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 500 }}
+                >
+                  <PowerOff size={14} />
+                  Desactivados ({disabledVehicles.length + disabledUsers.length})
+                </button>
+                <button
                   onClick={() => setAdminTab("fleet")}
                   className={`flex items-center gap-1.5 px-4 py-2 rounded-xl transition-all ${adminTab === "fleet" ? "bg-[#c9a84c]/20 text-[#c9a84c]" : "text-[#7a7890] hover:text-[#f0ede8]"}`}
                   style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 500 }}
                 >
                   <LayoutGrid size={14} />
-                  Flota ({vehicles.length})
+                  Flota ({activeVehicles.length})
                 </button>
                 <button
                   onClick={() => { setEditingVehicle(null); setShowAdminPanel(true); }}
@@ -499,10 +658,10 @@ export function DashboardScreen({
             {adminTab === "stats" && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                  { icon: Car, label: "Total vehículos", value: vehicles.length.toString(), color: "#c9a84c", sub: "en catálogo" },
+                  { icon: Car, label: "Total vehículos", value: activeVehicles.length.toString(), color: "#c9a84c", sub: "activos" },
                   { icon: CheckCircle, label: "Disponibles", value: availableCount.toString(), color: "#4caf84", sub: "para reservar" },
                   { icon: AlertTriangle, label: "No disponibles", value: unavailableCount.toString(), color: "#d4183d", sub: "fuera de servicio" },
-                  { icon: Package, label: "Categorías", value: categories.length.toString(), color: "#7a7890", sub: `${brands.length} marcas` },
+                  { icon: PowerOff, label: "Desactivados", value: (disabledVehicles.length + disabledUsers.length).toString(), color: "#f59e0b", sub: "vehículos y usuarios" },
                 ].map(({ icon: Icon, label, value, color, sub }) => (
                   <div key={label} className="bg-[#12121a] border border-[#c9a84c]/10 rounded-2xl p-4">
                     <div className="flex items-center gap-2 mb-2">
@@ -518,7 +677,7 @@ export function DashboardScreen({
 
             {adminTab === "fleet" && (
               <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                {vehicles.map((v) => (
+                {activeVehicles.map((v) => (
                   <div key={v.id} className="flex items-center gap-3 bg-[#12121a] border border-[#c9a84c]/10 rounded-xl px-4 py-3 hover:border-[#c9a84c]/30 transition-colors group">
                     <div className="w-14 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-[#1a1a24]">
                       <img src={v.img} alt={v.name} className="w-full h-full object-cover" />
@@ -556,6 +715,13 @@ export function DashboardScreen({
                         title="Eliminar"
                       >
                         <Trash2 size={12} color="#d4183d" />
+                      </button>
+                      <button
+                        onClick={() => onDeactivateVehicle?.(v.id)}
+                        className="w-7 h-7 bg-[#1a1a24] border border-[#f59e0b]/20 rounded-lg flex items-center justify-center hover:bg-[#f59e0b]/15 transition-colors"
+                        title="Desactivar"
+                      >
+                        <PowerOff size={12} color="#f59e0b" />
                       </button>
                     </div>
                   </div>
@@ -637,6 +803,84 @@ export function DashboardScreen({
               </div>
             )}
 
+            {adminTab === "disabled" && (
+              <div className="space-y-6">
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Car size={16} color="#f59e0b" />
+                    <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 16, fontWeight: 700, color: "#f0ede8" }}>
+                      Vehículos desactivados
+                    </span>
+                  </div>
+                  {disabledVehicles.length === 0 ? (
+                    <div className="bg-[#12121a] border border-[#c9a84c]/10 rounded-2xl p-6 text-[#7a7890] text-sm">
+                      No hay vehículos desactivados.
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                      {disabledVehicles.map((v) => (
+                        <div key={v.id} className="flex items-center gap-3 bg-[#12121a] border border-[#f59e0b]/20 rounded-xl px-4 py-3">
+                          <div className="w-14 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-[#1a1a24] opacity-60">
+                            <img src={v.img} alt={v.name} className="w-full h-full object-cover" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="truncate" style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 700, color: "#f0ede8" }}>{v.name}</p>
+                            <p style={{ fontFamily: "'Outfit', sans-serif", fontSize: 11, color: "#7a7890" }}>{v.brand} · {v.category}</p>
+                          </div>
+                          <button
+                            onClick={() => onActivateVehicle?.(v.id)}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#4caf84]/12 border border-[#4caf84]/30 text-[#4caf84] hover:bg-[#4caf84]/20 transition-colors"
+                            style={{ fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 700 }}
+                          >
+                            <RotateCcw size={13} />
+                            Reactivar
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Users size={16} color="#f59e0b" />
+                    <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 16, fontWeight: 700, color: "#f0ede8" }}>
+                      Usuarios desactivados
+                    </span>
+                  </div>
+                  {disabledUsers.length === 0 ? (
+                    <div className="bg-[#12121a] border border-[#c9a84c]/10 rounded-2xl p-6 text-[#7a7890] text-sm">
+                      No hay usuarios desactivados.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {disabledUsers.map(([email, user]) => (
+                        <div key={email} className="bg-[#12121a] border border-[#f59e0b]/20 rounded-2xl p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate" style={{ fontFamily: "'Outfit', sans-serif", fontSize: 14, fontWeight: 700, color: "#f0ede8" }}>{user.name}</p>
+                              <p className="truncate" style={{ fontFamily: "'Outfit', sans-serif", fontSize: 12, color: "#7a7890" }}>{email}</p>
+                              <span className="inline-flex mt-2 px-2 py-1 rounded-full text-[11px] font-semibold bg-[#f59e0b]/12 text-[#f59e0b]">
+                                {user.role || "client"}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => reactivateUser(email)}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#4caf84]/12 border border-[#4caf84]/30 text-[#4caf84] hover:bg-[#4caf84]/20 transition-colors"
+                              style={{ fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 700 }}
+                            >
+                              <RotateCcw size={13} />
+                              Reactivar
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {adminTab === "users" && (
               <div>
                 <div className="flex items-center justify-between mb-4">
@@ -672,7 +916,7 @@ export function DashboardScreen({
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(users)
+                  {activeUsers
                     .filter(([email, user]) => {
                       const search = userSearch.trim().toLowerCase();
                       if (!search) return true;
@@ -710,6 +954,14 @@ export function DashboardScreen({
                               title="Eliminar usuario"
                             >
                               <Trash2 size={13} color="#d4183d" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deactivateUser(email)}
+                              className="w-8 h-8 bg-[#1a1a24] border border-[#f59e0b]/20 rounded-lg flex items-center justify-center hover:bg-[#f59e0b]/15 hover:border-[#f59e0b]/40 transition-colors"
+                              title="Desactivar usuario"
+                            >
+                              <PowerOff size={13} color="#f59e0b" />
                             </button>
                           </div>
                         </div>
@@ -1377,12 +1629,35 @@ export function DashboardScreen({
               </div>
               <div>
                 <label style={{ fontFamily: "'Outfit', sans-serif", fontSize: 11, color: "#7a7890", letterSpacing: "0.1em" }} className="block mb-1.5">Rol</label>
-                <select value={newUserRole} onChange={(e) => setNewUserRole(e.target.value as "client" | "secretary")} className="w-full bg-[#1a1a24] border border-[#c9a84c]/15 rounded-2xl px-4 py-3 text-[#f0ede8] outline-none">
+                <select value={newUserRole} onChange={(e) => {
+                  const nextRole = e.target.value as "client" | "secretary";
+                  setNewUserRole(nextRole);
+                  if (nextRole !== "secretary") setNewUserCanManageVehicles(false);
+                }} className="w-full bg-[#1a1a24] border border-[#c9a84c]/15 rounded-2xl px-4 py-3 text-[#f0ede8] outline-none">
                   <option value="client">Cliente</option>
                   <option value="secretary">Secretario/a</option>
                 </select>
               </div>
             </div>
+            {newUserRole === "secretary" && (
+              <label className="mb-4 flex items-start gap-3 bg-[#1a1a24] border border-[#c9a84c]/15 rounded-2xl px-4 py-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newUserCanManageVehicles}
+                  onChange={(e) => setNewUserCanManageVehicles(e.target.checked)}
+                  className="mt-1 accent-[#c9a84c]"
+                />
+                <span>
+                  <span className="flex items-center gap-2" style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 700, color: "#f0ede8" }}>
+                    <KeyRound size={14} color="#c9a84c" />
+                    Permitir gestión de vehículos
+                  </span>
+                  <span className="block mt-1" style={{ fontFamily: "'Outfit', sans-serif", fontSize: 12, color: "#7a7890", lineHeight: 1.5 }}>
+                    Puede editar, eliminar y desactivar vehículos desde la flota, sin acceso al panel de administrador.
+                  </span>
+                </span>
+              </label>
+            )}
             {userCreateError && (
               <div className="mb-4 text-[#d4183d] text-sm">{userCreateError}</div>
             )}

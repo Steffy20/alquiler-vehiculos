@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Star, Fuel, Users, Settings, Heart, ArrowRight, SlidersHorizontal, X, Plus, Edit2, Trash2, Clock, Shield } from "lucide-react";
+import { Star, Fuel, Users, Settings, Heart, ArrowRight, SlidersHorizontal, X, Plus, Edit2, Trash2, Clock, Shield, PowerOff } from "lucide-react";
 import type { Vehicle } from "../App";
 import { AdminPanel } from "./AdminPanel";
 import { BRANCH_CITIES, createBranchInventory, inventoryTotals, type BranchCity } from "../utils/branches";
@@ -7,10 +7,12 @@ import { BRANCH_CITIES, createBranchInventory, inventoryTotals, type BranchCity 
 interface FleetScreenProps {
   vehicles: Vehicle[];
   isAdmin: boolean;
+  canManageVehicles?: boolean;
   onSelect: (vehicle: Vehicle) => void;
   onAddVehicle: (v: Vehicle) => void;
   onUpdateVehicle: (v: Vehicle) => void;
   onDeleteVehicle: (id: number) => void;
+  onDeactivateVehicle?: (id: number) => void;
   eyebrow?: string;
   title?: string;
   description?: string;
@@ -29,10 +31,12 @@ function isRecent(v: Vehicle): boolean {
 export function FleetScreen({
   vehicles,
   isAdmin,
+  canManageVehicles = false,
   onSelect,
   onAddVehicle,
   onUpdateVehicle,
   onDeleteVehicle,
+  onDeactivateVehicle,
   eyebrow = "NUESTROS VEHÍCULOS",
   title = "VehÃ­culos disponibles",
   description,
@@ -362,7 +366,7 @@ export function FleetScreen({
               )}
 
               {/* Admin controls overlay */}
-              {isAdmin && (
+              {canManageVehicles && (
                 <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={(e) => handleEditClick(e, vehicle)}
@@ -370,6 +374,13 @@ export function FleetScreen({
                     title="Editar"
                   >
                     <Edit2 size={13} color="#c9a84c" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDeactivateVehicle?.(vehicle.id); }}
+                    className="w-8 h-8 bg-[#1a1a24]/90 border border-[#f59e0b]/30 rounded-lg flex items-center justify-center hover:bg-[#f59e0b]/20 transition-colors"
+                    title="Desactivar"
+                  >
+                    <PowerOff size={13} color="#f59e0b" />
                   </button>
                   <button
                     onClick={(e) => handleDeleteClick(e, vehicle.id)}

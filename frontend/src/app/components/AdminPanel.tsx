@@ -464,6 +464,7 @@ export function AdminPanel({ vehicle, existingVehicles, onSave, onClose }: Admin
       branches: inventoryToSave,
       isNew: !isEdit,
       addedAt: isEdit ? vehicle!.addedAt : now,
+      disabled: isEdit ? vehicle!.disabled : false,
     };
     onSave(savedVehicle);
     setSaved(true);

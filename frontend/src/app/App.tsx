@@ -13,6 +13,7 @@ import { loadFromStorage, saveToStorage, removeFromStorage } from "./utils/stora
 import { reservationCancelledTrigger, bookingConfirmedTrigger } from "./utils/trigger";
 import { generateInvoice, generateConsolidatedInvoice, downloadInvoicePDF, cancelInvoiceItem, type Invoice } from "./utils/invoiceGenerator";
 import { createBranchInventory, inventoryTotals, type BranchCity, type BranchInventory } from "./utils/branches";
+import { loadVehicleExtras } from "./utils/vehicleExtras";
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/$/, "");
 
@@ -38,6 +39,7 @@ export type Vehicle = {
   selectedCity?: BranchCity;
   isNew?: boolean;
   addedAt?: string;
+  disabled?: boolean;
 };
 
 export type ActivityLogEntry = {
@@ -50,7 +52,7 @@ export type ActivityLogEntry = {
   category: "reservas" | "usuarios" | "flota" | "sistema";
 };
 
-type VehicleInventory = Record<number, Pick<Vehicle, "available" | "stock" | "occupied" | "branches">>;
+type VehicleInventory = Record<number, Pick<Vehicle, "available" | "stock" | "occupied" | "branches" | "disabled">>;
 
 const BASE_VEHICLES: Vehicle[] = [
   {
@@ -243,6 +245,7 @@ const getVehicleInventory = (vehicles: Vehicle[]): VehicleInventory =>
       stock: vehicle.stock,
       occupied: vehicle.occupied || 0,
       branches: vehicle.branches,
+      disabled: vehicle.disabled,
     };
     return inventory;
   }, {});
@@ -303,6 +306,11 @@ export default function App() {
   const [lastBookingVehicleCount, setLastBookingVehicleCount] = useState(1);
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>(() => loadFromStorage<ActivityLogEntry[]>("renta_activity_log", []));
   const isAuthenticated = userName.trim().length > 0;
+  const currentStoredUser = userEmail
+    ? loadFromStorage<Record<string, any>>("renta_users", {})[userEmail]
+    : null;
+  const canManageVehicles =
+    isAdmin || (userRole === "secretary" && Boolean(currentStoredUser?.canManageVehicles));
   const requiresAuth = (target: Screen) =>
     target === "booking" || target === "myReservations" || target === "dashboard" || target === "confirmed";
 
@@ -431,6 +439,28 @@ export default function App() {
     });
   };
 
+  const handleDeactivateVehicle = (id: number) => {
+    const targetVehicle = vehicles.find((v) => v.id === id);
+    if (!targetVehicle) return;
+    setVehicles((prev) => prev.map((v) => (v.id === id ? { ...v, disabled: true } : v)));
+    logActivity({
+      action: "Vehículo desactivado",
+      detail: `${userName || "Administrador"} desactivó ${targetVehicle.name}; ya no aparece para reservas.`,
+      category: "flota",
+    });
+  };
+
+  const handleActivateVehicle = (id: number) => {
+    const targetVehicle = vehicles.find((v) => v.id === id);
+    if (!targetVehicle) return;
+    setVehicles((prev) => prev.map((v) => (v.id === id ? { ...v, disabled: false } : v)));
+    logActivity({
+      action: "Vehículo reactivado",
+      detail: `${userName || "Administrador"} reactivó ${targetVehicle.name} en el catálogo.`,
+      category: "flota",
+    });
+  };
+
   const handleCancelReservation = (id: string) => {
     const cancellingRes = reservations.find((r) => r.id === id);
     if (cancellingRes && cancellingRes.vehicleId !== undefined && cancellingRes.status === "activa") {
@@ -489,7 +519,8 @@ export default function App() {
     }
   };
 
-  const bookingVehicles = vehicles.map((vehicle) => {
+  const activeVehicles = vehicles.filter((vehicle) => !vehicle.disabled);
+  const bookingVehicles = activeVehicles.map((vehicle) => {
     const pending = bookingCart.filter((item) => item.vehicle.id === vehicle.id);
     if (!pending.length) return vehicle;
     let branches = vehicle.branches || createBranchInventory(vehicle.stock, vehicle.occupied);
@@ -660,22 +691,26 @@ export default function App() {
       )}
       {screen === "fleet" && (
         <FleetScreen
-          vehicles={vehicles}
+          vehicles={activeVehicles}
           isAdmin={isAdmin}
+          canManageVehicles={canManageVehicles}
           onSelect={handleSelectVehicle}
           onAddVehicle={handleAddVehicle}
           onUpdateVehicle={handleUpdateVehicle}
           onDeleteVehicle={handleDeleteVehicle}
+          onDeactivateVehicle={handleDeactivateVehicle}
         />
       )}
       {screen === "bookingCatalog" && (
         <FleetScreen
           vehicles={bookingVehicles}
           isAdmin={false}
+          canManageVehicles={false}
           onSelect={handleSelectVehicle}
           onAddVehicle={handleAddVehicle}
           onUpdateVehicle={handleUpdateVehicle}
           onDeleteVehicle={handleDeleteVehicle}
+          onDeactivateVehicle={handleDeactivateVehicle}
           eyebrow="RESERVA"
           title="Elige un vehiculo"
           description="Selecciona el carro que quieres reservar para continuar con fechas, datos y pago."
@@ -704,10 +739,7 @@ export default function App() {
             }
             const groupId = `#VLC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
             const checkoutItems = [...bookingCart, { data: resData, vehicle: selectedVehicle }];
-            const extrasList = [
-              { id: "gps", name: "GPS Premium", price: 8 }, { id: "child", name: "Silla infantil", price: 12 },
-              { id: "insurance", name: "Seguro Full Cover", price: 25 }, { id: "driver", name: "Conductor adicional", price: 15 },
-            ];
+            const extrasList = loadVehicleExtras();
             const newReservations = checkoutItems.map(({ data, vehicle }, index) => {
               const id = checkoutItems.length > 1 ? `${groupId}-${index + 1}` : groupId;
               const invoice = generateInvoice(id, data.clientName || "Cliente", data.clientEmail || "", data.clientPhone || "", data.vehicle, data.category, data.location, data.pickup, data.dropoff, data.durationValue, vehicle.price, data.selectedExtras?.map((extraId: string) => {
@@ -829,6 +861,8 @@ export default function App() {
           onEditVehicle={(v) => goToScreen("fleet")}
           onGoToFleet={() => goToScreen("fleet")}
           onDeleteVehicle={handleDeleteVehicle}
+          onDeactivateVehicle={handleDeactivateVehicle}
+          onActivateVehicle={handleActivateVehicle}
           onAddVehicle={handleAddVehicle}
           onUpdateVehicle={handleUpdateVehicle}
         />

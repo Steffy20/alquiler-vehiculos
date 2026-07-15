@@ -42,7 +42,7 @@ export function LoginScreen({ allowBack = true, onBack, onLogin }: LoginScreenPr
       newErrors.email = "Correo electrónico inválido";
     } else {
       const users = getUsers();
-      if (!users[email]) {
+      if (!users[email] || users[email].disabled) {
         newErrors.email = "Este correo no está registrado";
       } else if (users[email].password !== password) {
         newErrors.password = "Contraseña incorrecta";
