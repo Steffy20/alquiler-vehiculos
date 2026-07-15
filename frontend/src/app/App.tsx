@@ -9,6 +9,7 @@ import { CompanyScreen } from "./components/CompanyScreen";
 import { AboutScreen } from "./components/AboutScreen";
 import { DestinationsScreen } from "./components/DestinationsScreen";
 import { MyReservationsScreen } from "./components/MyReservationsScreen";
+import { RentEcLogo } from "./components/RentEcLogo";
 import { loadFromStorage, saveToStorage, removeFromStorage } from "./utils/storage";
 import { reservationCancelledTrigger, bookingConfirmedTrigger } from "./utils/trigger";
 import { generateInvoice, generateConsolidatedInvoice, downloadInvoicePDF, cancelInvoiceItem, type Invoice } from "./utils/invoiceGenerator";
@@ -541,12 +542,7 @@ export default function App() {
         <header className="sticky top-0 z-50 bg-[#0a0a0f]/95 backdrop-blur-md border-b border-[#c9a84c]/10">
           <div className="max-w-7xl mx-auto px-6 py-4 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
             <button onClick={() => goToScreen("hero")} className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-[#c9a84c] rounded flex items-center justify-center">
-                <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 700, fontSize: 14, color: "#0a0a0f" }}>R</span>
-              </div>
-              <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 600, fontSize: 18, color: "#f0ede8", letterSpacing: "0.05em" }}>
-                RENTA
-              </span>
+              <RentEcLogo compact />
               {isAdmin && (
                 <span className="flex items-center gap-1 bg-[#c9a84c]/15 border border-[#c9a84c]/40 px-2 py-0.5 rounded-full ml-1">
                   <Shield size={10} color="#c9a84c" />
@@ -572,37 +568,41 @@ export default function App() {
               </nav>
             )}
 
-            <nav className="hidden md:flex items-center justify-end gap-2 col-start-3">
-              {navItems
-                .filter(({ id }) => !(isAdmin && id === "booking"))
-                .map(({ id, icon: Icon, label }) => (
-                  <button
-                    key={id}
-                    onClick={() => {
-                      goToNavItem(id);
-                    }}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
-                      screen === id || (id === "booking" && (screen === "bookingCatalog" || screen === "booking" || screen === "myReservations"))
-                        ? "bg-[#c9a84c]/15 text-[#c9a84c]"
-                        : "text-[#7a7890] hover:text-[#f0ede8] hover:bg-[#1a1a24]"
-                    }`}
-                    style={{ fontSize: 14 }}
-                  >
-                    <Icon size={15} />
-                    {id === "booking" ? (userRole === "secretary" ? "Reservas realizadas" : "Mis reservas") : label}
-                  </button>
-                ))}
-            </nav>
+            {screen !== "login" && (
+              <nav className="hidden md:flex items-center justify-end gap-2 col-start-3">
+                {navItems
+                  .filter(({ id }) => !(isAdmin && id === "booking"))
+                  .map(({ id, icon: Icon, label }) => (
+                    <button
+                      key={id}
+                      onClick={() => {
+                        goToNavItem(id);
+                      }}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
+                        screen === id || (id === "booking" && (screen === "bookingCatalog" || screen === "booking" || screen === "myReservations"))
+                          ? "bg-[#c9a84c]/15 text-[#c9a84c]"
+                          : "text-[#7a7890] hover:text-[#f0ede8] hover:bg-[#1a1a24]"
+                      }`}
+                      style={{ fontSize: 14 }}
+                    >
+                      <Icon size={15} />
+                      {id === "booking" ? (userRole === "secretary" ? "Reservas realizadas" : "Mis reservas") : label}
+                    </button>
+                  ))}
+              </nav>
+            )}
 
-            <button
-              className="md:hidden w-9 h-9 rounded-xl border border-[#c9a84c]/20 flex items-center justify-center"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              {mobileMenuOpen ? <X size={16} color="#f0ede8" /> : <Menu size={16} color="#f0ede8" />}
-            </button>
+            {screen !== "login" && (
+              <button
+                className="md:hidden w-9 h-9 rounded-xl border border-[#c9a84c]/20 flex items-center justify-center"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              >
+                {mobileMenuOpen ? <X size={16} color="#f0ede8" /> : <Menu size={16} color="#f0ede8" />}
+              </button>
+            )}
           </div>
 
-          {mobileMenuOpen && (
+          {mobileMenuOpen && screen !== "login" && (
             <div className="md:hidden border-t border-[#c9a84c]/10 bg-[#0a0a0f] px-6 py-4 flex flex-col gap-2">
               {(["fleet", "destinations", "company", "about"] as Screen[]).includes(screen) && (
                 <div className="grid grid-cols-2 gap-2 pb-3 mb-2 border-b border-[#c9a84c]/10">
