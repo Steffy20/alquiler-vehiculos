@@ -275,6 +275,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("hero");
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle>(BASE_VEHICLES[0]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [loginMode, setLoginMode] = useState<"login" | "signup">("login");
   const [userName, setUserName] = useState(() => loadFromStorage<string>("renta_userName", ""));
   const [userEmail, setUserEmail] = useState(() => loadFromStorage<string>("renta_userEmail", ""));
   const [userPhone, setUserPhone] = useState(() => loadFromStorage<string>("renta_userPhone", ""));
@@ -318,6 +319,7 @@ export default function App() {
   const goToScreen = (target: Screen) => {
     setMobileMenuOpen(false);
     if (!isAuthenticated && requiresAuth(target)) {
+      setLoginMode("login");
       setScreen("login");
       return;
     }
@@ -325,7 +327,25 @@ export default function App() {
   };
 
   const goToNavItem = (target: typeof navItems[number]["id"]) => {
+    if (!isAuthenticated && target === "booking") {
+      setMobileMenuOpen(false);
+      setLoginMode("login");
+      setScreen("login");
+      return;
+    }
+    if (!isAuthenticated && target === "dashboard") {
+      setMobileMenuOpen(false);
+      setLoginMode("signup");
+      setScreen("login");
+      return;
+    }
     goToScreen(target === "booking" ? "myReservations" : target);
+  };
+
+  const getNavLabel = (id: typeof navItems[number]["id"], label: string) => {
+    if (!isAuthenticated && id === "booking") return "Iniciar sesión";
+    if (!isAuthenticated && id === "dashboard") return "Registro";
+    return id === "booking" ? (userRole === "secretary" ? "Reservas realizadas" : "Mis reservas") : label;
   };
 
   const logActivity = (entry: Omit<ActivityLogEntry, "id" | "timestamp" | "actorName" | "actorRole"> & { actorName?: string; actorRole?: ActivityLogEntry["actorRole"] }) => {
@@ -586,7 +606,7 @@ export default function App() {
                       style={{ fontSize: 14 }}
                     >
                       <Icon size={15} />
-                      {id === "booking" ? (userRole === "secretary" ? "Reservas realizadas" : "Mis reservas") : label}
+                      {getNavLabel(id, label)}
                     </button>
                   ))}
               </nav>
@@ -631,7 +651,7 @@ export default function App() {
                     style={{ fontSize: 15 }}
                   >
                     <Icon size={16} />
-                    {id === "booking" ? (userRole === "secretary" ? "Reservas realizadas" : "Mis reservas") : label}
+                    {getNavLabel(id, label)}
                   </button>
                 ))}
             </div>
@@ -643,6 +663,7 @@ export default function App() {
       {screen === "login" && (
         <LoginScreen
           allowBack={true}
+          initialMode={loginMode}
           onBack={() => goToScreen("hero")}
           onLogin={(name, isSignup, role, email, phone) => {
             if (name) setUserName(name);
@@ -665,7 +686,7 @@ export default function App() {
         <HeroScreen
           userName={userName}
           onExplore={() => goToScreen("fleet")}
-          onLogin={() => setScreen("login")}
+          onLogin={() => { setLoginMode("login"); setScreen("login"); }}
           onDashboard={() => goToScreen("dashboard")}
           onCompany={() => setScreen("company")}
           onDestinations={() => setScreen("destinations")}
@@ -940,7 +961,7 @@ export default function App() {
                 }}
               >
                 <Icon size={20} />
-                <span style={{ fontSize: 10 }}>{id === "booking" ? (userRole === "secretary" ? "Reservas" : "Mis reservas") : label}</span>
+                <span style={{ fontSize: 10 }}>{getNavLabel(id, label)}</span>
               </button>
             ))}
         </div>

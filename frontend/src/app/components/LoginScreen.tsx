@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Eye, EyeOff, Mail, Lock, User, MapPin, Phone, AlertCircle } from "lucide-react";
 import { loadFromStorage, saveToStorage } from "../utils/storage";
 import { ECUADOR_CITIES, findEcuadorCity } from "../utils/ecuadorCities";
@@ -9,12 +9,13 @@ const ADMIN_PASSWORD = "admin123";
 
 interface LoginScreenProps {
   allowBack?: boolean;
+  initialMode?: "login" | "signup";
   onBack: () => void;
   onLogin: (name?: string, isSignup?: boolean, role?: "admin" | "secretary" | "client", email?: string, phone?: string) => void;
 }
 
-export function LoginScreen({ allowBack = true, onBack, onLogin }: LoginScreenProps) {
-  const [mode, setMode] = useState<"login" | "signup">("login");
+export function LoginScreen({ allowBack = true, initialMode = "login", onBack, onLogin }: LoginScreenProps) {
+  const [mode, setMode] = useState<"login" | "signup">(initialMode);
   const [signupStep, setSignupStep] = useState(1);
   
   const [name, setName] = useState("");
@@ -26,6 +27,12 @@ export function LoginScreen({ allowBack = true, onBack, onLogin }: LoginScreenPr
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setMode(initialMode);
+    setSignupStep(1);
+    setErrors({});
+  }, [initialMode]);
 
   const getUsers = () => {
     return loadFromStorage<Record<string, any>>("renta_users", {});
