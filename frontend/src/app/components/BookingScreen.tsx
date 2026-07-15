@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, CheckCircle, MapPin, Calendar, Shield, CreditCard, User, ChevronRight, Star, Fuel, Users, Settings, Check, Plus } from "lucide-react";
 import { loadFromStorage, saveToStorage, removeFromStorage } from "../utils/storage";
 import { BRANCH_CITIES, createBranchInventory, type BranchCity, type BranchInventory } from "../utils/branches";
+import { loadVehicleExtras } from "../utils/vehicleExtras";
 
 const BOOKING_DRAFT_KEY = "renta_booking_draft";
 const IVA_RATE = 0.15;
@@ -78,6 +79,8 @@ interface BookingScreenProps {
 
 export function BookingScreen({ vehicle, userRole, userName, userEmail, userPhone, onBack, onConfirm, onAddAnother, cartCount = 0 }: BookingScreenProps) {
   const branchInventory = vehicle.branches || createBranchInventory(0, 0);
+  const extras = loadVehicleExtras().filter((extra) => !extra.disabled);
+  const activeExtraIds = new Set(extras.map((extra) => extra.id));
   const draft = loadFromStorage<{
     selectedExtras: string[];
     durationValue: number;
@@ -106,7 +109,7 @@ export function BookingScreen({ vehicle, userRole, userName, userEmail, userPhon
   const [step, setStep] = useState(0);
   const [selectedClient, setSelectedClient] = useState<string>("");
   const [registeredClients, setRegisteredClients] = useState<{ email: string; name: string; phone: string; city: string }[]>([]);
-  const [selectedExtras, setSelectedExtras] = useState<string[]>(draft.selectedExtras);
+  const [selectedExtras, setSelectedExtras] = useState<string[]>(draft.selectedExtras.filter((extraId) => activeExtraIds.has(extraId)));
   const [durationValue, setDurationValue] = useState(Math.max(1, draft.durationValue || 5));
   const storedEmail = loadFromStorage<string>("renta_userEmail", "");
   const storedPhone = loadFromStorage<string>("renta_userPhone", "");
@@ -195,7 +198,7 @@ export function BookingScreen({ vehicle, userRole, userName, userEmail, userPhon
     pickup: pickupDate,
     dropoff: dropoffDate,
     cardNumber,
-    selectedExtras,
+    selectedExtras: selectedExtras.filter((extraId) => activeExtraIds.has(extraId)),
     clientName: name,
     clientEmail: email,
     clientPhone: phone,
